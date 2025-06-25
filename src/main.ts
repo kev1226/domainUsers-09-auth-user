@@ -20,6 +20,6 @@ async function bootstrap() {
   });
 
   await app.startAllMicroservices();
-  await app.listen(3011); // Puedes eliminar si es sólo Kafka
+  await app.listen(3009); 
 }
 bootstrap();
