@@ -38,44 +38,4 @@ export class AuthService {
       return { isValid: false, error: err.message };
     }
   }
-
-  async validateTokenAndRespond(
-    data: TokenValidationRequestWithOrigin,
-  ): Promise<void> {
-    console.log('📥 Solicitud recibida para validar token y responder');
-    console.log('🔍 Datos recibidos:', JSON.stringify(data, null, 2));
-
-    const result = this.validateToken(data);
-
-    const topic =
-      data.origin === 'cart'
-        ? 'auth.verify.response.cart'
-        : 'auth.verify.response';
-
-    console.log('📨 Topic destino:', topic);
-
-    const responsePayload = result.isValid
-      ? {
-          valid: true,
-          userId: Number(result.payload.id || result.payload.sub),
-          email: result.payload.email,
-          roles: result.payload.roles,
-          requestId: data.requestId,
-        }
-      : {
-          valid: false,
-          error: result.error,
-          requestId: data.requestId,
-        };
-
-    console.log('📦 Respuesta a enviar por Kafka:');
-    console.log(JSON.stringify(responsePayload, null, 2));
-
-    try {
-      await this.kafkaClient.emit(topic, responsePayload).toPromise();
-      console.log('📤 Respuesta enviada por Kafka al topic:', topic);
-    } catch (err) {
-      console.error('❌ Error al enviar mensaje Kafka:', err.message);
-    }
-  }
 }

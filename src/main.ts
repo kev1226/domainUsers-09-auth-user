@@ -1,11 +1,23 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
+/**
+ * Entry point of the Auth Verifier Service.
+ * Sets up Swagger, CORS, and Kafka microservice configuration.
+ */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Agregar este microservicio Kafka
+  // Enable CORS for all origins
+  app.enableCors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  // Connect Kafka microservice
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.KAFKA,
     options: {
@@ -19,7 +31,18 @@ async function bootstrap() {
     },
   });
 
+  // Swagger setup
+  const config = new DocumentBuilder()
+    .setTitle('Auth Verifier Microservice')
+    .setDescription('Kafka and HTTP-based token validator')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document); // Swagger UI at /docs
+
   await app.startAllMicroservices();
-  await app.listen(3009); 
+  await app.listen(3009);
 }
 bootstrap();
