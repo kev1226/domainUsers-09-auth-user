@@ -1,0 +1,73 @@
+name: Build & Deploy auth-users to EC2
+
+on:
+  push:
+    branches:
+      - qa
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build, Test, Push to DockerHub and Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set deployment variables
+        id: set-vars
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/qa" ]]; then
+            echo "env=QA" >> $GITHUB_OUTPUT
+            echo "tag=qa-latest" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.pull_request.base.ref }}" == "main" ]]; then
+            echo "env=PROD" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies and run tests
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - run: npm install -g pnpm
+      - run: pnpm install
+      - run: pnpm run test
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t kalemat/09-auth-users:${{ steps.set-vars.outputs.tag }} .
+
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push kalemat/09-auth-users:${{ steps.set-vars.outputs.tag }}
+
+      - name: Connect and deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets[format('EC2_HOST_{0}', steps.set-vars.outputs.env)] }}
+          username: ${{ secrets[format('EC2_USER_{0}', steps.set-vars.outputs.env)] }}
+          key: ${{ secrets[format('EC2_KEY_{0}', steps.set-vars.outputs.env)] }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
+          script: |
+            docker stop 09-auth-users || true
+            docker rm 09-auth-users || true
+
+            docker pull kalemat/09-auth-users:${{ steps.set-vars.outputs.tag }}
+
+            docker run -d \
+              --name 09-auth-users \
+              --restart always \
+              -p 3009:3009 \
+              kalemat/09-auth-users:${{ steps.set-vars.outputs.tag }}
