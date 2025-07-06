@@ -5,7 +5,7 @@ import {
   TokenValidationRequestWithOrigin,
   TokenValidationResponse,
 } from './auth.interface';
-import { KafkaServices } from 'src/kafka/kafka-constants';
+import { KafkaServices } from '../kafka/kafka-constants';
 import { ClientKafka } from '@nestjs/microservices';
 
 @Injectable()
